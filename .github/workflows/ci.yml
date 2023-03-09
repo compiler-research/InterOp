@@ -21,12 +21,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: ubu22-gcc9-clang13
+          - name: ubu22-gcc9-clang13-repl
             os: ubuntu-22.04
             compiler: gcc-9
             clang-runtime: '13'
             cling: Off
-          - name: ubu22-gcc9-clang13
+          - name: ubu22-gcc9-clang13-cling
             os: ubuntu-22.04
             compiler: gcc-9
             clang-runtime: '13'
@@ -102,6 +102,7 @@ jobs:
     - name: Build LLVM/Cling on Linux if the cache is invalid
       if: ${{ runner.os == 'Linux' && steps.cache.outputs.cache-hit != 'true' }}
       run: |
+        cling_on="${{ matrix.cling }}"
         if [[ "${cling_on^^}" == "ON" ]]; then
           git clone --depth=1 https://github.com/root-project/cling.git
         fi
@@ -154,6 +155,7 @@ jobs:
         # Build InterOp next to cling and llvm-project.
         pwd
         mkdir build && cd build
+        cling_on="${{ matrix.cling }}"
         if [[ "${cling_on^^}" == "ON" ]]; then
           cmake -DUSE_CLING=ON -DUSE_REPL=OFF -DCling_DIR=$LLVM_BUILD_DIR -DLLVM_DIR=$LLVM_BUILD_DIR ../
         else
