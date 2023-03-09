@@ -10,20 +10,6 @@ set(CMAKE_MODULE_PATH
 # project, using LLVM as an external library:
 if( CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR )
   project(InterOp)
-  if (USE_CLING)
-    find_package(LLVM REQUIRED CONFIG HINTS ${Cling_DIR}/lib/cmake/llvm/ NO_DEFAULT_PATH)
-    find_package(Clang REQUIRED CONFIG HINTS ${Cling_DIR}/lib/cmake/clang/ NO_DEFAULT_PATH)
-    find_package(Cling REQUIRED CONFIG HINTS ${Cling_DIR}/lib/cmake/cling/ NO_DEFAULT_PATH)
-    include_directories(${CLING_INCLUDE_DIRS})
-  endif(USE_CLING)
-  ## Define supported version of clang and llvm
-
-  set(CLANG_MIN_SUPPORTED 13.0)
-  set(CLANG_MAX_SUPPORTED "14.0.x")
-  set(CLANG_VERSION_UPPER_BOUND 15.1.0)
-  set(LLVM_MIN_SUPPORTED 13.0)
-  set(LLVM_MAX_SUPPORTED "15.0.x")
-  set(LLVM_VERSION_UPPER_BOUND 15.1.0)
 
   if (NOT DEFINED Clang_DIR)
     set(Clang_DIR ${LLVM_DIR})
@@ -31,6 +17,41 @@ if( CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR )
   if (NOT DEFINED LLVM_DIR)
     set(LLVM_DIR ${Clang_DIR})
   endif()
+
+  option(USE_CLING "Use Cling as backend" OFF)
+  option(USE_REPL "Use clang-repl as backend" OFF)
+
+  if (USE_CLING)
+    add_definitions(-DUSE_CLING)
+  endif()
+  if (USE_REPL)
+    add_definitions(-DUSE_REPL)
+  endif()
+
+  if (USE_CLING AND USE_REPL)
+    message(FATAL_ERROR "We can only use Cling (USE_CLING=On) or Repl (USE_REPL=On), but not both of them.")
+  endif()
+
+  if (USE_CLING)
+    message(STATUS "Mode USE_CLING = ON")
+    find_package(LLVM REQUIRED CONFIG HINTS ${LLVM_DIR}/lib/cmake/llvm/ NO_DEFAULT_PATH)
+    find_package(Clang REQUIRED CONFIG HINTS ${Clang_DIR}/lib/cmake/clang/ NO_DEFAULT_PATH)
+    find_package(Cling REQUIRED CONFIG HINTS ${Cling_DIR}/lib/cmake/cling/ NO_DEFAULT_PATH)
+    include_directories(${CLING_INCLUDE_DIRS})
+  endif(USE_CLING)
+  if (USE_REPL)
+    message(STATUS "Mode USE_REPL = ON")
+    find_package(LLVM REQUIRED CONFIG HINTS ${LLVM_DIR}/lib/cmake/llvm/ NO_DEFAULT_PATH)
+    find_package(Clang REQUIRED CONFIG HINTS ${Clang_DIR}/lib/cmake/clang/ NO_DEFAULT_PATH)
+  endif(USE_REPL)
+  ## Define supported version of clang and llvm
+
+  set(CLANG_MIN_SUPPORTED 13.0)
+  set(CLANG_MAX_SUPPORTED "15.0.x")
+  set(CLANG_VERSION_UPPER_BOUND 15.1.0)
+  set(LLVM_MIN_SUPPORTED 13.0)
+  set(LLVM_MAX_SUPPORTED "15.0.x")
+  set(LLVM_VERSION_UPPER_BOUND 15.1.0)
 
   ## Set Cmake packages search order
 
@@ -125,7 +146,6 @@ if( CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR )
     message(FATAL_ERROR "Found unsupported version: Clang ${CLANG_PACKAGE_VERSION};\nPlease set Clang_DIR pointing to the clang version ${CLANG_MIN_SUPPORTED} to ${CLANG_MAX_SUPPORTED} build or installation folder")
   endif()
 
-  message(STATUS "Found supported version: Clang ${CLANG_PACKAGE_VERSION}")
   message(STATUS "Using ClangConfig.cmake in: ${Clang_DIR}")
 
   ## Clang 13 test
@@ -160,7 +180,12 @@ if( CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR )
   # LLVM_INCLUDE_DIRS) contain clang headers, too.
   include_directories(${CLANG_INCLUDE_DIRS})
   include_directories(${LLVM_INCLUDE_DIRS})
-  add_definitions(${LLVM_DEFINITIONS})
+  separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
+  add_definitions(${LLVM_DEFINITIONS_LIST})
+
+  message(STATUS "CLANG_INCLUDE_DIRS: ${CLANG_INCLUDE_DIRS}")
+  message(STATUS "LLVM_INCLUDE_DIRS: ${LLVM_INCLUDE_DIRS}")
+  message(STATUS "LLVM_DEFINITIONS_LIST: ${LLVM_DEFINITIONS_LIST}")
 
   # If the llvm sources are present add them with higher priority.
   if (LLVM_BUILD_MAIN_SRC_DIR)

@@ -7,8 +7,10 @@
 // LICENSE.TXT for details.
 //------------------------------------------------------------------------------
 
-#ifndef CLING_INTERPRETER_INTEROP_H
-#define CLING_INTERPRETER_INTEROP_H
+#ifndef CLING_REPL_INTERPRETER_INTEROP_H
+#define CLING_REPL_INTERPRETER_INTEROP_H
+
+#include "Compatibility.h"
 
 #include <string>
 #include <vector>
@@ -201,4 +203,4 @@ namespace InterOp {
   std::vector<TCppIndex_t> GetDimensions(TCppType_t type);
 } // end namespace InterOp
 
-#endif // CLING_INTERPRETER_INTEROP_H
+#endif // CLING_REPL_INTERPRETER_INTEROP_H
