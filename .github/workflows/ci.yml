@@ -95,7 +95,7 @@ jobs:
       with:
         path: |
           llvm-project
-          ${{ matrix.cling_on=='On' & 'cling' || '' }}
+          ${{ matrix.cling_on=='On' && 'cling' || '' }}
         #key: ...-.x-patch-${{ hashFiles('patches/llvm/*') }}
         #key: ${{ env.CLING_HASH }}-${{ env.LLVM_HASH }}-${{ runner.os }}-${{ matrix.os }}-${{ matrix.compiler }}-clang-${{ matrix.clang-runtime }}.x
         key: ${{ env.CLING_HASH }}-${{ runner.os }}-${{ matrix.os }}-${{ matrix.compiler }}-clang-${{ matrix.clang-runtime }}.x
