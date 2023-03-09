@@ -102,7 +102,9 @@ jobs:
     - name: Build LLVM/Cling on Linux if the cache is invalid
       if: ${{ runner.os == 'Linux' && steps.cache.outputs.cache-hit != 'true' }}
       run: |
-        [[ "${cling_on^^}" == "ON" ]] git clone --depth=1 https://github.com/root-project/cling.git
+        if [[ "${cling_on^^}" == "ON" ]]; then
+          git clone --depth=1 https://github.com/root-project/cling.git
+        fi
         git clone --depth=1 -b cling-llvm13 https://github.com/root-project/llvm-project.git
         cd llvm-project
         mkdir build
