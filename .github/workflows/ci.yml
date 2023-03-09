@@ -44,6 +44,9 @@ jobs:
         mkdir -p ./pr
         echo ${{ github.event.number }} > ./pr/NR
         echo ${{ github.repository }} > ./pr/REPO
+        
+        echo "!!!!!! ${{ matrix.cling_on=='On' && 'cling' || '' }}"
+        echo "?????? ${{ matrix.cling=='On' && 'cling' || '' }}"
 
         cling_on="${{ matrix.cling }}"
         if [[ "${cling_on^^}" == "ON" ]]; then
