@@ -38,8 +38,6 @@
 #include "clang/Basic/LangOptions.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/FrontendOptions.h"
-//**//#include "clang/Interpreter/IncrementalExecutor.h"
-//**//#include "clang/Interpreter/IncrementalParser.h"
 #include "clang/Interpreter/Interpreter.h"
 #include "clang/Sema/Lookup.h"
 #include "clang/Sema/Sema.h"
@@ -70,6 +68,8 @@ namespace clang {
   class TypedefNameDecl;
 
 //**//
+  class CompilerInstance;
+  class IncrementalExecutor;
   class IncrementalParser;
 }
 
@@ -92,8 +92,8 @@ namespace clang {
   namespace utils {
     namespace Lookup {
 
-using namespace clang;
-using namespace llvm;
+  using namespace clang;
+  using namespace llvm;
 
   NamespaceDecl* Namespace(Sema* S, const char* Name,
                                    const DeclContext* Within) {
@@ -121,7 +121,7 @@ using namespace llvm;
     return dyn_cast<NamespaceDecl>(R.getFoundDecl());
   }
 
-  void Named(Sema* S, LookupResult& R,\
+  void Named(Sema* S, LookupResult& R,
                           const DeclContext* Within = nullptr) {
     R.suppressDiagnostics();
     if (!Within)
@@ -166,9 +166,9 @@ using namespace llvm;
 
 namespace InterOp {
 
-using namespace clang;
-using namespace llvm;
-using namespace std;
+  using namespace clang;
+  using namespace llvm;
+  using namespace std;
 
   void maybeMangleDeclName(const GlobalDecl& GD, string& mangledName) {
     // copied and adapted from CodeGen::CodeGenModule::getMangledName
@@ -197,38 +197,50 @@ using namespace std;
     RawStr.flush();
   }
 
-class IncrementalParserFaildeError : public ErrorInfo<IncrementalParserFaildeError> { };
-
-class Interpreter: public clang::Interpreter {
+// clang::Interpreter:
+//  llvm::Expected<PartialTranslationUnit &> Parse(llvm::StringRef Code);
+//  llvm::Error Execute(PartialTranslationUnit &T);
+//  llvm::Error ParseAndExecute(llvm::StringRef Code) {
+//  llvm::Error Undo(unsigned N = 1);
+//  llvm::Expected<llvm::JITTargetAddress> getSymbolAddress(GlobalDecl GD) const;
+//  llvm::Expected<llvm::JITTargetAddress> getSymbolAddress(llvm::StringRef IRName) const;
+//  llvm::Expected<llvm::JITTargetAddress> getSymbolAddressFromLinkerName(llvm::StringRef LinkerName) const;
+class /*InterOp::*/Interpreter: public clang::Interpreter {
 
   bool isInSyntaxOnlyMode() const {
     return getCompilerInstance()->getFrontendOpts().ProgramAction
       == frontend::ParseSyntaxOnly;
   }
-/*
-  void* getAddressOfGlobal(StringRef SymName,
-                                        bool* fromJIT /*=0* /) const {
-    // Return a symbol's address, and whether it was jitted.
-    if (isInSyntaxOnlyMode())
-      return nullptr;
-    //* //return IncrExecutor->getAddressOfGlobal(SymName, fromJIT);
-    //*?//return IncrExecutor->getSymbolAddress(SymName, fromJIT ? IncrementalExecutor::SymbolNameKind::IRNamee : IncrementalExecutor::SymbolNameKind::LinkerName);
-    return nullptr;
-  }
 
-  void* getAddressOfGlobal(const GlobalDecl& GD,
-                            bool* fromJIT /*=0* /) const {
-    // Return a symbol's address, and whether it was jitted.
-    string mangledName;
-    maybeMangleDeclName(GD, mangledName);
+/* clang impl
+llvm::Expected<llvm::JITTargetAddress>
+Interpreter::getSymbolAddress(GlobalDecl GD) const {
+  if (!IncrExecutor)
+    return llvm::make_error<llvm::StringError>("Operation failed. "
+                                               "No execution engine",
+                                               std::error_code());
+  llvm::StringRef MangledName = IncrParser->GetMangledName(GD);
+  return getSymbolAddress(MangledName);
+}
+*/
+
+/**/  void* getAddressOfGlobal(const GlobalDecl& GD, bool* fromJIT=0) const {
+    auto result = getSymbolAddress(GD);
+    if (fromJIT)
+      *fromJIT = true; //Fix
+    return (void*)(result.get());
+/* cling impl
+// Return a symbol's address, and whether it was jitted.
+    std::string mangledName;
+    utils::Analyze::maybeMangleDeclName(GD, mangledName);
 #if defined(_WIN32)
     // For some unknown reason, Clang 5.0 adds a special symbol ('\01') in front
     // of the mangled names on Windows, making them impossible to find
     // TODO: remove this piece of code and try again when updating Clang
-    string mncp = mangledName;
+    std::string mncp = mangledName;
     // use corrected symbol for "external" lookup
     if (mncp.size() > 2 && mncp[1] == '?' &&
-        mncp.compare(1, 14, string("?__cling_Un1Qu"))) {
+        mncp.compare(1, 14, std::string("?__cling_Un1Qu"))) {
       mncp.erase(0, 1);
     }
     void *addr = getAddressOfGlobal(mncp, fromJIT);
@@ -237,10 +249,83 @@ class Interpreter: public clang::Interpreter {
     // if failed, proceed with original symbol for lookups in JIT tables
 #endif
     return getAddressOfGlobal(mangledName, fromJIT);
+*/
+  }
+
+/* clang impl
+llvm::Expected<llvm::JITTargetAddress>
+Interpreter::getSymbolAddress(llvm::StringRef IRName) const {
+  if (!IncrExecutor)
+    return llvm::make_error<llvm::StringError>("Operation failed. "
+                                               "No execution engine",
+                                               std::error_code());
+
+  return IncrExecutor->getSymbolAddress(IRName, IncrementalExecutor::IRName);
+}
+
+llvm::Expected<llvm::JITTargetAddress>
+Interpreter::getSymbolAddressFromLinkerName(llvm::StringRef Name) const {
+  if (!IncrExecutor)
+    return llvm::make_error<llvm::StringError>("Operation failed. "
+                                               "No execution engine",
+                                               std::error_code());
+
+  return IncrExecutor->getSymbolAddress(Name, IncrementalExecutor::LinkerName);
+}
+*/
+
+/* cling impl
+  void* getAddressOfGlobal(llvm::StringRef SymName, bool* fromJIT=0) const {
+    // Return a symbol's address, and whether it was jitted.
+    if (isInSyntaxOnlyMode())
+      return nullptr;
+    return m_Executor->getAddressOfGlobal(SymName, fromJIT);
   }
 */
 
-  CompilationOptions makeDefaultCompilationOpts() {
+/* cling executor
+  void* address = m_JIT->getSymbolAddress(symbolName, includeHostSymbols);
+
+  // FIXME: If we split the loaded libraries into a separate JITDylib we should
+  // be able to delete this code and use something like:
+  //   if (IncludeHostSymbols) {
+  //   if (auto Sym = lookup(<HostSymbolsJD>, Name)) {
+  //     fromJIT = false;
+  //     return Sym;
+  //   }
+  // }
+  // if (auto Sym = lookup(<REPLJD>, Name)) {
+  //   fromJIT = true;
+  //   return Sym;
+  // }
+  // fromJIT = false;
+  // return nullptr;
+  if (fromJIT) {
+    // FIXME: See comments on DLSym below.
+    // We use dlsym to just tell if somethings was from the jit or not.
+#if !defined(_WIN32)
+    void* Addr = llvm::sys::DynamicLibrary::SearchForAddressOfSymbol(symbolName.str());
+#else
+    void* Addr = const_cast<void*>(platform::DLSym(symbolName.str()));
+#endif
+    *fromJIT = !Addr;
+  }
+
+  return address;
+*/
+
+/**/  void* getAddressOfGlobal(StringRef SymName, bool* fromJIT = 0) const {
+    // Return a symbol's address, and whether it was jitted.
+    if (isInSyntaxOnlyMode())
+      return nullptr;
+    //**//return IncrExecutor->getAddressOfGlobal(SymName, fromJIT);
+    auto result = getSymbolAddress(SymName); //? getSymbolAddressFromLinkerName(SymName);
+    if (fromJIT)
+      *fromJIT = true; //TODO: Fix this to wor corect
+    return (void*)(result.get());
+  }
+
+/*  CompilationOptions makeDefaultCompilationOpts() {
     InterOp::CompilationOptions CO;
     CO.DeclarationExtraction = 0;
     CO.EnableShadowing = 0;
@@ -253,43 +338,44 @@ class Interpreter: public clang::Interpreter {
     CO.OptLevel = getDefaultOptLevel();
     return CO;
   }
-
+*/
+/*
   llvm::Error
   DeclareInternal(const string& input,
-                  const CompilationOptions& CO //**//,
-//**//                  Transaction** T /* = 0 */) const {
-                 ) const {
+//                  const CompilationOptions& CO // ** //,
+//** //                  Transaction** T /* = 0 * /) const {
+/*                 ) const {
     assert(CO.DeclarationExtraction == 0
            && CO.ValuePrinting == 0
            && CO.ResultEvaluation == 0
            && "Compilation Options not compatible with \"declare\" mode.");
 
-//*?*//    StateDebuggerRAII stateDebugger(this);
-
+//*?* //    StateDebuggerRAII stateDebugger(this);
+/*
     IncrementalParser::ParseResultTransaction PRT
       = IncrParser->Compile(input, CO);
     if (PRT.getInt() == IncrementalParser::kFailed)
-      return IncrementalParserFaildeError(); //**// Interpreter::kFailure;
+      return IncrementalParserFaildeError(); //** // Interpreter::kFailure;
 
-//**//    if (T)
-//**//      *T = PRT.getPointer();
-    return llvm::ErrorSuccess(); //**//Interpreter::kSuccess;
-  }
+//** //    if (T)
+//** //      *T = PRT.getPointer();
+/*    return llvm::ErrorSuccess(); //** //Interpreter::kSuccess;
+//  }
 
-//**//  Interpreter::CompilationResult
-  llvm::Error
-  declare(const string& input) { //**//, Transaction** T/*=0 */) {
-//**//    if (!isInSyntaxOnlyMode() && m_Opts.CompilerOpts.CUDAHost)
-//**//      m_CUDACompiler->declare(input);
-
+//** //  Interpreter::CompilationResult
+//  llvm::Error
+//  declare(const string& input) { //** //, Transaction** T/*=0 * /) {
+//** //    if (!isInSyntaxOnlyMode() && m_Opts.CompilerOpts.CUDAHost)
+//** //      m_CUDACompiler->declare(input);
+/*
     InterOp::CompilationOptions CO = makeDefaultCompilationOpts();
     CO.DeclarationExtraction = 0;
     CO.ValuePrinting = 0;
     CO.ResultEvaluation = 0;
     CO.CheckPointerValidity = 0;
-
-    return DeclareInternal(input, CO); //**//, T);
-  }
+*/
+//    return DeclareInternal(input, CO); //**//, T);
+//  }
 
 
   ///\brief Compile the function definition and return its Decl.
@@ -298,9 +384,9 @@ class Interpreter: public clang::Interpreter {
   ///\param[in] code - function definition, starting with 'extern "C"'.
   ///\param[in] withAccessControl - whether to enforce access restrictions.
   ///\param[out] T - The cling::Transaction of the input
-  const FunctionDecl* DeclareCFunction(StringRef name,
-                                       StringRef code,
-                                       bool withAccessControl) const {//**//,
+//  const FunctionDecl* DeclareCFunction(StringRef name,
+//                                       StringRef code,
+//                                       bool withAccessControl) const {//**//,
 //**//                                       Transaction*& T) const {
     /*
     In CallFunc we currently always (intentionally and somewhat necessarily)
@@ -386,45 +472,45 @@ class Interpreter: public clang::Interpreter {
 //**//    DiagnosticsEngine& Diag = getDiagnostics();
 //**//    Diag.setSeverity(clang::diag::ext_nested_name_member_ref_lookup_ambiguous,
 //**//                     clang::diag::Severity::Ignored, SourceLocation());
-
-    LangOptions& LO = const_cast<LangOptions&>(getCompilerInstance()->getLangOpts());
-    bool savedAccessControl = LO.AccessControl;
-    LO.AccessControl = withAccessControl;
+//
+//    LangOptions& LO = const_cast<LangOptions&>(getCompilerInstance()->getLangOpts());
+//    bool savedAccessControl = LO.AccessControl;
+//    LO.AccessControl = withAccessControl;
 //**//    T = nullptr;
 //**//    cling::Interpreter::CompilationResult CR = declare(code.str(), &T);
-    llvm::Error CR = declare(code.str());
-    LO.AccessControl = savedAccessControl;
-
+//    llvm::Error CR = declare(code.str());
+//    LO.AccessControl = savedAccessControl;
+//
 //**//    Diag.setSeverity(clang::diag::ext_nested_name_member_ref_lookup_ambiguous,
 //**//                     clang::diag::Severity::Warning, SourceLocation());
-
+//
 //**//    if (CR != cling::Interpreter::kSuccess)
-      if (CR) {
-        CR.setChecked(true);
-        return nullptr;
-      }
+//      if (CR) {
+//        CR.setChecked(true);
+//        return nullptr;
+//      }
 //**//
-    for (cling::Transaction::const_iterator I = T->decls_begin(),
-           E = T->decls_end(); I != E; ++I) {
-      if (I->m_Call != cling::Transaction::kCCIHandleTopLevelDecl)
-        continue;
-      if (const LinkageSpecDecl* LSD
-          = dyn_cast<LinkageSpecDecl>(*I->m_DGR.begin())) {
-        DeclContext::decl_iterator DeclBegin = LSD->decls_begin();
-        if (DeclBegin == LSD->decls_end())
-          continue;
-        if (const FunctionDecl* D = dyn_cast<FunctionDecl>(*DeclBegin)) {
-          const IdentifierInfo* II = D->getDeclName().getAsIdentifierInfo();
-          if (II && II->getName() == name)
-            return D;
-        }
-      }
-    }
-    return nullptr;
-  }
+//    for (cling::Transaction::const_iterator I = T->decls_begin(),
+//           E = T->decls_end(); I != E; ++I) {
+//      if (I->m_Call != cling::Transaction::kCCIHandleTopLevelDecl)
+//        continue;
+//      if (const LinkageSpecDecl* LSD
+//          = dyn_cast<LinkageSpecDecl>(*I->m_DGR.begin())) {
+//        DeclContext::decl_iterator DeclBegin = LSD->decls_begin();
+//        if (DeclBegin == LSD->decls_end())
+//          continue;
+//        if (const FunctionDecl* D = dyn_cast<FunctionDecl>(*DeclBegin)) {
+//          const IdentifierInfo* II = D->getDeclName().getAsIdentifierInfo();
+//          if (II && II->getName() == name)
+//            return D;
+//        }
+//      }
+//    }
+//    return nullptr;
+//  }
 
   void* compileFunction(StringRef name, StringRef code,
-                       bool ifUnique, bool withAccessControl) {
+                        bool ifUnique, bool withAccessControl) {
     //
     //  Compile the wrapper code.
     //
@@ -433,20 +519,24 @@ class Interpreter: public clang::Interpreter {
       return nullptr;
 
     if (ifUnique) {
-//*?*//      if (void* Addr = (void*)getAddressOfGlobal(name)) {
-      if (void* Addr = (void*)(getSymbolAddress(name).get())) {
+      if (void* Addr = (void*)getAddressOfGlobal(name)) {
         return Addr;
       }
     }
 
 //**//    Transaction* T = nullptr;
-    const FunctionDecl* FD = DeclareCFunction(name, code, withAccessControl); //**//, T);
+//**//    const FunctionDecl* FD = DeclareCFunction(name, code, withAccessControl); //**//, T);
 //**//    if (!FD || !T)
-      if (!FD)
-      return nullptr;
+//**//      return nullptr;
+//**//
+//**//    //  Get the wrapper function pointer from the ExecutionEngine (the JIT).
+//**//    return m_Executor->getPointerToGlobalFromJIT(name);
 
-    //  Get the wrapper function pointer from the ExecutionEngine (the JIT).
-    return m_Executor->getPointerToGlobalFromJIT(name);
+//  llvm::Expected<PartialTranslationUnit &> Parse(llvm::StringRef Code);
+//  llvm::Error Execute(PartialTranslationUnit &T);
+//  llvm::Error ParseAndExecute(llvm::StringRef Code) {
+    auto PTU = Parse(code); //???
+    return nullptr; //PTU???
   }
 
 
@@ -454,6 +544,7 @@ class Interpreter: public clang::Interpreter {
 }
 
 #endif
+
 
 //} // namespace cling_compat
 
