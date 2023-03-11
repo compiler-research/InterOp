@@ -9,7 +9,7 @@
 
 #include "clang/Interpreter/InterOp.h"
 
-#ifdef USE_CLANG
+#ifdef USE_CLING
   #include "cling/Interpreter/Interpreter.h"
   #include "cling/Interpreter/Transaction.h"
   #include "cling/Interpreter/DynamicLibraryManager.h"
@@ -23,12 +23,13 @@
   #include "clang/AST/Type.h"
   #include "clang/Sema/Lookup.h"
 //**//
-#endif
+#endif // USE_CLING/USE_REPL
 
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/GlobalDecl.h"
 #include "clang/AST/Mangle.h"
+#include "clang/AST/QualTypeNames.h"
 #include "clang/AST/RecordLayout.h"
 #include "clang/Basic/DiagnosticSema.h"
 #include "clang/Basic/Linkage.h"
@@ -818,7 +819,8 @@ namespace InterOp {
 //**//    auto *I = (cling::Interpreter *) interp;
     auto *I = (InterOp::Interpreter *) interp;
 //**//    auto *S = &I->getCI()->getSema();
-    auto *S = &I->getCompilerInstance()->getSema();
+//////    auto *S = &I->getCompilerInstance()->getSema();
+    auto *S = GetSema(I);
     auto &C = S->getASTContext();
 
     if (auto *FD = llvm::dyn_cast<FieldDecl>(D))
@@ -1045,11 +1047,25 @@ namespace InterOp {
       // QualTypeNames.h in clang
       // type_name = clang::TypeName::getFullyQualifiedName(QT, C, Policy);
       //**//cling::utils::Transform::Config Config;
-      //**// QT = cling::utils::Transform::GetPartiallyDesugaredType(
+      //**//QT = cling::utils::Transform::GetPartiallyDesugaredType(
       //**//      C, QT, Config, /*fullyQualify=*/true);
-      //**//
-      QT = clang::TypeName::getFullyQualifiedName(QT, C, Policy);
-      //**//
+      //**//QT.getAsStringInternal(type_name, Policy);
+
+      /* cling impl:
+         const cling::LookupHelper& lh = fInterpreter->getLookupHelper();
+         clang::QualType t = lh.findType(nameLong, ToLHDS(WantDiags()));
+         if (!t.isNull()) {
+           clang::QualType dest = cling::utils::Transform::GetPartiallyDesugaredType(fInterpreter->getCI()->getASTContext(), t, fNormalizedCtxt->GetConfig(), true /* fully qualify /);
+           if (!dest.isNull() && (dest != t)) {
+             // getAsStringInternal() appends.
+             nameLong.clear();
+             dest.getAsStringInternal(nameLong, fInterpreter->getCI()->getASTContext().getPrintingPolicy());
+           }
+         }
+      */
+
+      //TODO: Implement cling desugaring from utils::AST cling::utils::Transform::GetPartiallyDesugaredType()
+      QT = QT.getDesugaredType(C);
       QT.getAsStringInternal(type_name, Policy);
     }
 
@@ -1081,7 +1097,7 @@ namespace InterOp {
         }
         for (int i = 0; i < indent_level; ++i) {
           typedefbuf << kIndentString;
-        }
+    }
         typedefbuf << "typedef " << fp_typedef_name << ";\n";
         return;
       } else if (QT->isMemberPointerType()) {
@@ -1384,7 +1400,8 @@ namespace InterOp {
       //
       if (const CXXConstructorDecl* CD = dyn_cast<CXXConstructorDecl>(FD)) {
         if (N <= 1 && llvm::isa<UsingShadowDecl>(FD)) {
-          auto SpecMemKind = I->getSema().getSpecialMember(CD);
+//**//          auto SpecMemKind = I->getSema().getSpecialMember(CD);
+          auto SpecMemKind = I->getCompilerInstance()->getSema().getSpecialMember(CD);
           if ((N == 0 && SpecMemKind == clang::Sema::CXXDefaultConstructor) ||
               (N == 1 && (SpecMemKind == clang::Sema::CXXCopyConstructor ||
                           SpecMemKind == clang::Sema::CXXMoveConstructor))) {
@@ -1742,10 +1759,10 @@ namespace InterOp {
       }
       if (needInstantiation) {
         clang::FunctionDecl* FDmod = const_cast<clang::FunctionDecl*>(FD);
-        clang::Sema& S = I->getSema();
+        clang::Sema& S = I->getCompilerInstance()->getSema();
         // Could trigger deserialization of decls.
 //**//        cling::Interpreter::PushTransactionRAII RAII(I);
-        InterOp::Interpreter::PushTransactionRAII RAII(I);
+        //del/InterOp::Interpreter::PushTransactionRAII RAII(I);
         S.InstantiateFunctionDefinition(SourceLocation(), FDmod,
                                         /*Recursive=*/true,
                                         /*DefinitionRequired=*/true);

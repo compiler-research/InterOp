@@ -15,7 +15,7 @@
 #ifdef USE_CLING
 
 
-#endif
+#endif //USE_CLING
 
 
 #ifdef USE_REPL
@@ -206,6 +206,52 @@ namespace InterOp {
 //  llvm::Expected<llvm::JITTargetAddress> getSymbolAddress(llvm::StringRef IRName) const;
 //  llvm::Expected<llvm::JITTargetAddress> getSymbolAddressFromLinkerName(llvm::StringRef LinkerName) const;
 class /*InterOp::*/Interpreter: public clang::Interpreter {
+public:
+//    Interpreter(std::vector<const char*>::size_type, const char**): clang::Interpreter() {}; //
+    Interpreter(int argc, const char* const* argv) {
+      std::vector<std::string> vargs(argv + 1, argv + argc);
+      auto ci = IncrementalCompilerBuilder::create(vargs);
+      llvm::Error Err = llvm::Error::success();
+      clang::Interpreter(ci, &Err);
+      assert(Err && "Can't create wrapped clang interpreter.");
+
+//  static llvm::Expected<std::unique_ptr<CompilerInstance>> create(std::vector<const char *> &ClangArgv);
+
+    }; //InterOp
+//    Interpreter(std::unique_ptr<CompilerInstance> CI, llvm::Error &Err); // clang-repl
+//    Interpreter(int argc, const char* const* argv, const char* llvmdir, // cling
+
+
+/*
+    ///\brief Pushes a new transaction, which will collect the decls that came
+    /// within the scope of the RAII object. Calls commit transaction at
+    /// destruction.
+    class PushTransactionRAII {
+    private:
+      Transaction* m_Transaction;
+      const Interpreter* m_Interpreter;
+    public:
+      PushTransactionRAII(const Interpreter* i) : m_Interpreter(i) {
+        CompilationOptions CO = m_Interpreter->makeDefaultCompilationOpts();
+        CO.ResultEvaluation = 0;
+        CO.DynamicScoping = 0;
+        m_Transaction = m_Interpreter->m_IncrParser->beginTransaction(CO);
+      }
+      ~PushTransactionRAII() {
+        pop();
+      }
+      void pop() const {
+        if (m_Transaction->getState() == Transaction::kRolledBack)
+          return;
+        IncrementalParser::ParseResultTransaction PRT
+          = m_Interpreter->m_IncrParser->endTransaction(m_Transaction);
+        if (PRT.getPointer()) {
+          assert(PRT.getPointer()==m_Transaction && "Ended different transaction?");
+          m_Interpreter->m_IncrParser->commitTransaction(PRT);
+        }
+      }
+    };
+*/
 
   bool isInSyntaxOnlyMode() const {
     return getCompilerInstance()->getFrontendOpts().ProgramAction
@@ -543,7 +589,7 @@ Interpreter::getSymbolAddressFromLinkerName(llvm::StringRef Name) const {
   };
 }
 
-#endif
+#endif //USE_REPL
 
 
 //} // namespace cling_compat
