@@ -332,7 +332,7 @@ TEST(TypeReflectionTest, DISABLED_IsSubType) {
 
   std::string code = R"(
       class A {};
-      class B : A {};
+      class B {};
       class C {};
 
       A a;
@@ -346,9 +346,9 @@ TEST(TypeReflectionTest, DISABLED_IsSubType) {
   InterOp::TCppType_t type_B = InterOp::GetVariableType(Decls[4]);
   InterOp::TCppType_t type_C = InterOp::GetVariableType(Decls[5]);
 
-  // EXPECT_TRUE(InterOp::IsSubType(type_B, type_A));
-  // EXPECT_FALSE(InterOp::IsSubType(type_A, type_B));
-  // EXPECT_FALSE(InterOp::IsSubType(type_C, type_A));
+  EXPECT_TRUE(InterOp::IsSubType(type_B, type_A));
+  EXPECT_FALSE(InterOp::IsSubType(type_A, type_B));
+  EXPECT_FALSE(InterOp::IsSubType(type_C, type_A));
 }
 
 TEST(TypeReflectionTest, GetDimensions) {

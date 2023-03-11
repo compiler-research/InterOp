@@ -242,7 +242,9 @@ TEST(VariableReflectionTest, DISABLED_GetArrayDimensions) {
     )";
 
   GetAllTopLevelDecls(code, Decls);
-
+  GetAllSubDecls(Decls[0], SubDecls);
+  GetAllSubDecls(Decls[1], SubDecls);
+  GetAllSubDecls(Decls[2], SubDecls);
   auto is_vec_eq = [](const std::vector<size_t> &arr_dims,
                       const std::vector<size_t> &truth_vals) {
     if (arr_dims.size() != truth_vals.size()) 
@@ -251,7 +253,7 @@ TEST(VariableReflectionTest, DISABLED_GetArrayDimensions) {
     return std::equal(arr_dims.begin(), arr_dims.end(), truth_vals.begin());
   };
 
-  // EXPECT_TRUE(is_vec_eq(InterOp::GetArrayDimensions(Decls[0]), {}));
-  // EXPECT_TRUE(is_vec_eq(InterOp::GetArrayDimensions(Decls[1]), {1}));
-  // EXPECT_TRUE(is_vec_eq(InterOp::GetArrayDimensions(Decls[2]), {1,2}));
+   EXPECT_TRUE(is_vec_eq(InterOp::GetArrayDimensions(Decls[0]), {}));
+   EXPECT_TRUE(is_vec_eq(InterOp::GetArrayDimensions(Decls[1]), {1}));
+   EXPECT_TRUE(is_vec_eq(InterOp::GetArrayDimensions(Decls[2]), {1,2}));
 }

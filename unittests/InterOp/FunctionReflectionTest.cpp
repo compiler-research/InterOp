@@ -624,14 +624,15 @@ TEST(FunctionReflectionTest, DISABLED_GetFunctionArgName) {
     )";
 
   GetAllTopLevelDecls(code, Decls);
-  // EXPECT_EQ(InterOp::GetFunctionArgName(Decls[0], 0), "i");
-  // EXPECT_EQ(InterOp::GetFunctionArgName(Decls[0], 1), "d");
-  // EXPECT_EQ(InterOp::GetFunctionArgName(Decls[0], 2), "l");
-  // EXPECT_EQ(InterOp::GetFunctionArgName(Decls[0], 3), "ch");
-  // EXPECT_EQ(InterOp::GetFunctionArgName(Decls[1], 0), "i");
-  // EXPECT_EQ(InterOp::GetFunctionArgName(Decls[1], 1), "d");
-  // EXPECT_EQ(InterOp::GetFunctionArgName(Decls[1], 2), "l");
-  // EXPECT_EQ(InterOp::GetFunctionArgName(Decls[1], 3), "ch");
+  GetAllSubDecls(Decls[0], SubDecls);
+  EXPECT_EQ(InterOp::GetFunctionArgName(Decls[0], 0), "i");
+  EXPECT_EQ(InterOp::GetFunctionArgName(Decls[0], 1), "d");
+  EXPECT_EQ(InterOp::GetFunctionArgName(Decls[0], 2), "l");
+  EXPECT_EQ(InterOp::GetFunctionArgName(Decls[0], 3), "ch");
+  EXPECT_EQ(InterOp::GetFunctionArgName(Decls[1], 0), "i");
+  EXPECT_EQ(InterOp::GetFunctionArgName(Decls[1], 1), "d");
+  EXPECT_EQ(InterOp::GetFunctionArgName(Decls[1], 2), "l");
+  EXPECT_EQ(InterOp::GetFunctionArgName(Decls[1], 3), "ch");
 }
 
 TEST(FunctionReflectionTest, DISABLED_GetFunctionArgDefault) {
@@ -641,10 +642,10 @@ TEST(FunctionReflectionTest, DISABLED_GetFunctionArgDefault) {
     )";
 
   GetAllTopLevelDecls(code, Decls);
-  // EXPECT_EQ(InterOp::GetFunctionArgDefault(Decls[0], 0), "");
-  // EXPECT_EQ(InterOp::GetFunctionArgDefault(Decls[0], 1), "4.0");
-  // EXPECT_EQ(InterOp::GetFunctionArgDefault(Decls[0], 2), "\"default\"");
-  // EXPECT_EQ(InterOp::GetFunctionArgDefault(Decls[0], 3), "\'c\'");
+  EXPECT_EQ(InterOp::GetFunctionArgDefault(Decls[0], 0), "");
+  EXPECT_EQ(InterOp::GetFunctionArgDefault(Decls[0], 1), "4.0");
+  EXPECT_EQ(InterOp::GetFunctionArgDefault(Decls[0], 2), "\"default\"");
+  EXPECT_EQ(InterOp::GetFunctionArgDefault(Decls[0], 3), "\'c\'");
 }
 
 TEST(FunctionReflectionTest, DISABLED_Construct) {
