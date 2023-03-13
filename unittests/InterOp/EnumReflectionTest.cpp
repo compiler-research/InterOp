@@ -1,6 +1,7 @@
 #include "Utils.h"
 
-#include "cling/Interpreter/Interpreter.h"
+//**//#include "cling/Interpreter/Interpreter.h"
+//**//#include "clang/Interpreter/Interpreter.h"
 
 #include "clang/AST/ASTContext.h"
 #include "clang/Interpreter/InterOp.h"
@@ -12,7 +13,7 @@
 using namespace TestUtils;
 using namespace llvm;
 using namespace clang;
-using namespace cling;
+//**//using namespace cling;
 
 TEST(ScopeReflectionTest, IsEnum) {
   std::vector<Decl *> Decls, SubDecls;

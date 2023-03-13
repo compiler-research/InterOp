@@ -20,8 +20,8 @@ function(add_interop_unittest name)
 
   target_link_libraries(${name} PUBLIC ${ARG_LIBRARIES} gtest gtest_main)
 
-  add_test(NAME clad-${name} COMMAND ${name})
-  set_tests_properties(clad-${name} PROPERTIES
+  add_test(NAME interop-${name} COMMAND ${name})
+  set_tests_properties(interop-${name} PROPERTIES
                        TIMEOUT "${TIMEOUT_VALUE}"
                        LABELS
                        DEPENDS)

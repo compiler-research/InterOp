@@ -11,9 +11,15 @@ add_interop_unittest(InterOpTests
   EnumReflectionTest.cpp
   )
 
+set(clingInterpreter "clangInterpreter")
+if (USE_CLING)
+  set(clingInterpreter "clingInterpreter")
+endif()
+
+
 target_link_libraries(InterOpTests
   PRIVATE
-  clingInterpreter
+  ${clingInterpreter}
   clangInterOp
   clangAST
   clangBasic

@@ -1,7 +1,8 @@
-#include "clang/Interpreter/InterOp.h"
+//**//#include "clang/Interpreter/InterOp.h"
 #include "Utils.h"
 
-#include "cling/Interpreter/Interpreter.h"
+//**//#include "cling/Interpreter/Interpreter.h"
+//**//#include "clang/Interpreter/Interpreter.h"
 
 #include "clang/AST/ASTContext.h"
 #include "clang/Interpreter/InterOp.h"
@@ -13,7 +14,7 @@
 using namespace TestUtils;
 using namespace llvm;
 using namespace clang;
-using namespace cling;
+//**//using namespace cling;
 
 // Check that the CharInfo table has been constructed reasonably.
 TEST(ScopeReflectionTest, IsNamespace) {
@@ -67,7 +68,7 @@ TEST(ScopeReflectionTest, IsBuiltin) {
   //  "int", "unsigned int", "long", "unsigned long", "long long", "unsigned long long",
   //  "float", "double", "long double", "void"}
 
-  Interp.reset(static_cast<Interpreter*>(InterOp::CreateInterpreter()));
+  Interp.reset(static_cast<InterOp::Interpreter*>(InterOp::CreateInterpreter()));
   ASTContext &C = Interp->getCI()->getASTContext();
   EXPECT_TRUE(InterOp::IsBuiltin(C.BoolTy.getAsOpaquePtr()));
   EXPECT_TRUE(InterOp::IsBuiltin(C.CharTy.getAsOpaquePtr()));
@@ -293,7 +294,7 @@ TEST(ScopeReflectionTest, GetUsingNamespaces) {
 }
 
 TEST(ScopeReflectionTest, GetGlobalScope) {
-  Interp.reset(static_cast<Interpreter*>(InterOp::CreateInterpreter()));
+  Interp.reset(static_cast<InterOp::Interpreter*>(InterOp::CreateInterpreter()));
   Sema *S = &Interp->getCI()->getSema();
 
   EXPECT_EQ(InterOp::GetQualifiedName(InterOp::GetGlobalScope(S)), "");
@@ -310,7 +311,7 @@ TEST(ScopeReflectionTest, GetScope) {
                         }
                        )";
 
-  Interp.reset(static_cast<Interpreter*>(InterOp::CreateInterpreter()));
+  Interp.reset(static_cast<InterOp::Interpreter*>(InterOp::CreateInterpreter()));
   Interp->declare(code);
   Sema *S = &Interp->getCI()->getSema();
   InterOp::TCppScope_t tu = InterOp::GetScope(S, "", 0);
@@ -333,7 +334,7 @@ TEST(ScopeReflectionTest, GetScopefromCompleteName) {
                         }
                        )";
 
-  Interp.reset(static_cast<Interpreter*>(InterOp::CreateInterpreter()));
+  Interp.reset(static_cast<InterOp::Interpreter*>(InterOp::CreateInterpreter()));
   Interp->declare(code);
   Sema *S = &Interp->getCI()->getSema();
   EXPECT_EQ(InterOp::GetQualifiedName(InterOp::GetScopeFromCompleteName(S, "N1")), "N1");
@@ -355,7 +356,7 @@ TEST(ScopeReflectionTest, GetNamed) {
                         }
                        )";
 
-  Interp.reset(static_cast<Interpreter*>(InterOp::CreateInterpreter()));
+  Interp.reset(static_cast<InterOp::Interpreter*>(InterOp::CreateInterpreter()));
   Interp->declare(code);
   Sema *S = &Interp->getCI()->getSema();
   InterOp::TCppScope_t ns_N1 = InterOp::GetNamed(S, "N1", nullptr);
@@ -387,7 +388,7 @@ TEST(ScopeReflectionTest, GetParentScope) {
                         }
                        )";
 
-  Interp.reset(static_cast<Interpreter*>(InterOp::CreateInterpreter()));
+  Interp.reset(static_cast<InterOp::Interpreter*>(InterOp::CreateInterpreter()));
   Interp->declare(code);
   Sema *S = &Interp->getCI()->getSema();
   InterOp::TCppScope_t ns_N1 = InterOp::GetNamed(S, "N1");
@@ -590,7 +591,7 @@ TEST(ScopeReflectionTest, GetAllCppNames) {
 }
 
 TEST(ScopeReflectionTest, InstantiateClassTemplate) {
-  Interp.reset(static_cast<Interpreter*>(InterOp::CreateInterpreter()));
+  Interp.reset(static_cast<InterOp::Interpreter*>(InterOp::CreateInterpreter()));
 
   std::vector<Decl *> Decls;
   std::string code = R"(
