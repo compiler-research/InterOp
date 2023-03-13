@@ -1,7 +1,8 @@
 
 #include "Utils.h"
 
-#include "cling/Interpreter/Interpreter.h"
+//**//#include "cling/Interpreter/Interpreter.h"
+//**//#include "clang/Interpreter/InterOp.h"
 
 #include "clang/AST/ASTContext.h"
 #include "clang/Interpreter/InterOp.h"
@@ -15,7 +16,7 @@
 using namespace TestUtils;
 using namespace llvm;
 using namespace clang;
-using namespace cling;
+//**//using namespace cling;
 
 TEST(FunctionReflectionTest, GetClassMethods) {
   std::vector<Decl*> Decls;
@@ -652,7 +653,7 @@ TEST(FunctionReflectionTest, GetFunctionArgDefault) {
 }
 
 TEST(FunctionReflectionTest, DISABLED_Construct) {
-  Interp.reset(static_cast<Interpreter*>(InterOp::CreateInterpreter()));
+  Interp.reset(static_cast<InterOp::Interpreter*>(InterOp::CreateInterpreter()));
   Sema *S = &Interp->getCI()->getSema();
   
   Interp->declare(R"(
@@ -672,7 +673,7 @@ TEST(FunctionReflectionTest, DISABLED_Construct) {
 }
 
 TEST(FunctionReflectionTest, DISABLED_Destruct) {
-  Interp.reset(static_cast<Interpreter*>(InterOp::CreateInterpreter()));
+  Interp.reset(static_cast<InterOp::Interpreter*>(InterOp::CreateInterpreter()));
   Sema *S = &Interp->getCI()->getSema();
   
   Interp->declare(R"(

@@ -1,7 +1,8 @@
 #include "Utils.h"
 
-#include "cling/Interpreter/Interpreter.h"
-#include "cling/Interpreter/Transaction.h"
+//**//#include "cling/Interpreter/Interpreter.h"
+//**//#include "cling/Interpreter/Transaction.h"
+//**//#include "clang/Interpreter/Interpreter.h"
 
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/FileSystem.h"
@@ -13,9 +14,10 @@
 #include "clang/Config/config.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Interpreter/InterOp.h"
+#include "clang/Sema/Lookup.h"
 #include "clang/Sema/Sema.h"
 
-using namespace cling;
+//**//using namespace cling;
 using namespace clang;
 using namespace llvm;
 
@@ -24,13 +26,14 @@ using namespace llvm;
 // of the Interpreter.
 // This might fix the issue https://reviews.llvm.org/D107087
 // FIXME: For now we just leak the Interpreter.
-std::unique_ptr<Interpreter> TestUtils::Interp;
+std::unique_ptr<InterOp::Interpreter> TestUtils::Interp;
 struct InterpDeleter {
   ~InterpDeleter() { TestUtils::Interp.release(); }
 } Deleter;
 
 void TestUtils::GetAllTopLevelDecls(const std::string& code, std::vector<Decl*>& Decls) {
-  Interp.reset(static_cast<Interpreter*>(InterOp::CreateInterpreter()));
+  Interp.reset(static_cast<InterOp::Interpreter*>(InterOp::CreateInterpreter()));
+#ifdef USE_CLING
   Transaction *T = nullptr;
   Interp->declare(code, &T);
   for (auto DCI = T->decls_begin(), E = T->decls_end(); DCI != E; ++DCI) {
@@ -39,6 +42,9 @@ void TestUtils::GetAllTopLevelDecls(const std::string& code, std::vector<Decl*>&
     assert(DCI->m_DGR.isSingleDecl());
     Decls.push_back(DCI->m_DGR.getSingleDecl());
   }
+#else
+//  PartialTranslationUnit *T = nullptr;
+#endif
 }
 
 void TestUtils::GetAllSubDecls(Decl *D, std::vector<Decl*>& SubDecls) {

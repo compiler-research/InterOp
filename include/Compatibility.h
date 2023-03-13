@@ -6,11 +6,6 @@
 #ifndef INTEROP_COMPATIBILITY
 #define INTEROP_COMPATIBILITY
 
-//namespace cing_compat {
-
-//using namespace clang;
-//using namespace llvm;
-
 
 #ifdef USE_CLING
 
@@ -20,14 +15,15 @@
 
 #ifdef USE_REPL
 
-
-//  #define cling clang
-
 #include "CompilationOptions.h"
+#include "DynamicLibraryManager.h"
+#include "Paths.h"
 
 #include "llvm/ADT/SmallSet.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/ExecutionEngine/Orc/LLJIT.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Error.h"
 
@@ -39,16 +35,14 @@
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/FrontendOptions.h"
 #include "clang/Interpreter/Interpreter.h"
+#include "clang/Interpreter/PartialTranslationUnit.h"
+#include "clang/Lex/Preprocessor.h"
 #include "clang/Sema/Lookup.h"
 #include "clang/Sema/Sema.h"
 
-namespace cling = clang;
-
 namespace clang {
 
-//  namespace utils = clang;
-
-  class ASTContext;
+/*  class ASTContext;
   class Expr;
   class Decl;
   class DeclContext;
@@ -66,11 +60,12 @@ namespace clang {
   class TemplateDecl;
   class Type;
   class TypedefNameDecl;
+*/
 
 //**//
   class CompilerInstance;
-  class IncrementalExecutor;
-  class IncrementalParser;
+//  class IncrementalExecutor;
+//  class IncrementalParser;
 }
 
 namespace {
@@ -88,14 +83,14 @@ namespace {
   }
 }
 
-namespace clang {
+namespace InterOp {
   namespace utils {
     namespace Lookup {
 
   using namespace clang;
   using namespace llvm;
 
-  NamespaceDecl* Namespace(Sema* S, const char* Name,
+  inline NamespaceDecl* Namespace(Sema* S, const char* Name,
                                    const DeclContext* Within) {
     DeclarationName DName = &(S->Context.Idents.get(Name));
     LookupResult R(*S, DName, SourceLocation(),
@@ -121,7 +116,7 @@ namespace clang {
     return dyn_cast<NamespaceDecl>(R.getFoundDecl());
   }
 
-  void Named(Sema* S, LookupResult& R,
+  inline void Named(Sema* S, LookupResult& R,
                           const DeclContext* Within = nullptr) {
     R.suppressDiagnostics();
     if (!Within)
@@ -141,7 +136,7 @@ namespace clang {
     }
   }
 
-  NamedDecl* Named(Sema* S, const DeclarationName& Name,
+  inline NamedDecl* Named(Sema* S, const DeclarationName& Name,
                            const DeclContext* Within = nullptr) {
     LookupResult R(*S, Name, SourceLocation(), Sema::LookupOrdinaryName,
                Sema::ForVisibleRedeclaration);
@@ -149,13 +144,13 @@ namespace clang {
     return LookupResult2Decl<NamedDecl>(R);
   }
 
-  NamedDecl* Named(Sema* S, StringRef Name,
+  inline NamedDecl* Named(Sema* S, StringRef Name,
                            const DeclContext* Within = nullptr) {
     DeclarationName DName = &S->Context.Idents.get(Name);
     return Named(S, DName, Within);
   }
 
-  NamedDecl* Named(Sema* S, const char* Name,
+  inline NamedDecl* Named(Sema* S, const char* Name,
                            const DeclContext* Within = nullptr) {
     return Named(S, StringRef(Name), Within);
   }
@@ -170,7 +165,7 @@ namespace InterOp {
   using namespace llvm;
   using namespace std;
 
-  void maybeMangleDeclName(const GlobalDecl& GD, string& mangledName) {
+  inline void maybeMangleDeclName(const GlobalDecl& GD, string& mangledName) {
     // copied and adapted from CodeGen::CodeGenModule::getMangledName
 
     NamedDecl* D = cast<NamedDecl>(const_cast<Decl*>(GD.getDecl()));
@@ -205,21 +200,118 @@ namespace InterOp {
 //  llvm::Expected<llvm::JITTargetAddress> getSymbolAddress(GlobalDecl GD) const;
 //  llvm::Expected<llvm::JITTargetAddress> getSymbolAddress(llvm::StringRef IRName) const;
 //  llvm::Expected<llvm::JITTargetAddress> getSymbolAddressFromLinkerName(llvm::StringRef LinkerName) const;
-class /*InterOp::*/Interpreter: public clang::Interpreter {
+class /*InterOp::*/Interpreter {
+  std::unique_ptr<clang::Interpreter> inner;
 public:
-//    Interpreter(std::vector<const char*>::size_type, const char**): clang::Interpreter() {}; //
-    Interpreter(int argc, const char* const* argv) {
-      std::vector<std::string> vargs(argv + 1, argv + argc);
-      auto ci = IncrementalCompilerBuilder::create(vargs);
-      llvm::Error Err = llvm::Error::success();
-      clang::Interpreter(ci, &Err);
-      assert(Err && "Can't create wrapped clang interpreter.");
+  Interpreter(int argc, const char* const *argv,
+              const char* llvmdir = 0,
+              const std::vector<std::shared_ptr<clang::ModuleFileExtension>>& moduleExtensions = {},
+              void *extraLibHandle = 0, bool noRuntime = true) {
+    std::vector<const char *> vargs(argv + 1, argv + argc);
+    if (auto ciOrErr = clang::IncrementalCompilerBuilder::create(vargs)) {
+      if (auto innerOrErr = clang::Interpreter::create(std::move(*ciOrErr))) {
+        inner = std::move(*innerOrErr);
+      } else {
+        reportErr("Failed to build Interpreter: ", innerOrErr.takeError());
+      }
+    } else {
+      reportErr("Failed to build Incremental compiler: ", ciOrErr.takeError());
+    }
+  }
 
-//  static llvm::Expected<std::unique_ptr<CompilerInstance>> create(std::vector<const char *> &ClangArgv);
+  ~Interpreter() {}
 
-    }; //InterOp
-//    Interpreter(std::unique_ptr<CompilerInstance> CI, llvm::Error &Err); // clang-repl
-//    Interpreter(int argc, const char* const* argv, const char* llvmdir, // cling
+  ///\brief Describes the return result of the different routines that do the
+  /// incremental compilation.
+  ///
+  enum CompilationResult {
+    kSuccess,
+    kFailure,
+    kMoreInputExpected
+  };
+
+  static void reportErr(StringRef message, llvm::Error err) {
+    llvm::SmallVector<char, 64> Buffer;
+    raw_svector_ostream OS(Buffer);
+    OS << err;
+    StringRef Str = OS.str();
+    llvm::report_fatal_error(llvm::Twine(message) + Str);
+  }
+
+  const CompilerInstance *getCompilerInstance() const {
+    return inner->getCompilerInstance();
+  }
+
+  const llvm::orc::LLJIT *getExecutionEngine() const {
+    return inner->getExecutionEngine();
+  }
+
+  llvm::Expected<PartialTranslationUnit &> Parse(llvm::StringRef Code) {
+    return inner->Parse(Code);
+  }
+
+  llvm::Error Execute(PartialTranslationUnit &T) {
+    return inner->Execute(T);
+  }
+
+  llvm::Error ParseAndExecute(llvm::StringRef Code) {
+    return inner->ParseAndExecute(Code);
+  }
+
+  llvm::Error Undo(unsigned N = 1) {
+    return inner->Undo(N);
+  }
+
+  /// \returns the \c JITTargetAddress of a \c GlobalDecl. This interface uses
+  /// the CodeGenModule's internal mangling cache to avoid recomputing the
+  /// mangled name.
+  llvm::Expected<llvm::JITTargetAddress> getSymbolAddress(GlobalDecl GD) const {
+    return inner->getSymbolAddress(GD);
+  }
+
+  /// \returns the \c JITTargetAddress of a given name as written in the IR.
+  llvm::Expected<llvm::JITTargetAddress>
+  getSymbolAddress(llvm::StringRef IRName) const {
+    return inner->getSymbolAddress(IRName);
+  }
+
+  /// \returns the \c JITTargetAddress of a given name as written in the object
+  /// file.
+  llvm::Expected<llvm::JITTargetAddress>
+  getSymbolAddressFromLinkerName(llvm::StringRef LinkerName) const {
+    return inner->getSymbolAddressFromLinkerName(LinkerName);
+  }
+
+
+/*
+  IncrementalAction(CompilerInstance &CI, llvm::LLVMContext &LLVMCtx, llvm::Error &Err)
+      : WrapperFrontendAction([&]() {
+          llvm::ErrorAsOutParameter EAO(&Err);
+          std::unique_ptr<FrontendAction> Act;
+          switch (CI.getFrontendOpts().ProgramAction) {
+          default:
+            Err = llvm::createStringError(
+                std::errc::state_not_recoverable,
+                "Driver initialization failed. "
+                "Incremental mode for action %d is not supported",
+                CI.getFrontendOpts().ProgramAction);
+            return Act;
+          case frontend::ASTDump:
+            LLVM_FALLTHROUGH;
+          }
+          return Act;
+        }()) {}
+*/
+//    std::vector<const char *> ClingArgv = {"-resource-dir", ResourceDir.c_str(),
+//                                           "-std=c++14"};
+//    ClingArgv.insert(ClingArgv.begin(), MainExecutableName.c_str());
+//**//    return new cling::Interpreter(ClingArgv.size(), &ClingArgv[0]);
+//    return new InterOp::Interpreter(ClingArgv.size(), &ClingArgv[0]);
+//      std::vector<std::string> vargs(argv + 1, argv + argc);
+//      auto ci = IncrementalCompilerBuilder::create(vargs);
+//      llvm::Error Err = llvm::Error::success();
+//      clang::Interpreter(ci, &Err);
+//      assert(Err && "Can't create wrapped clang interpreter.");
 
 
 /*
@@ -385,19 +477,20 @@ Interpreter::getSymbolAddressFromLinkerName(llvm::StringRef Name) const {
     return CO;
   }
 */
+
 /*
   llvm::Error
   DeclareInternal(const string& input,
-//                  const CompilationOptions& CO // ** //,
+                  const CompilationOptions& CO //** //,
 //** //                  Transaction** T /* = 0 * /) const {
-/*                 ) const {
+                 ) const {
     assert(CO.DeclarationExtraction == 0
            && CO.ValuePrinting == 0
            && CO.ResultEvaluation == 0
            && "Compilation Options not compatible with \"declare\" mode.");
 
 //*?* //    StateDebuggerRAII stateDebugger(this);
-/*
+
     IncrementalParser::ParseResultTransaction PRT
       = IncrParser->Compile(input, CO);
     if (PRT.getInt() == IncrementalParser::kFailed)
@@ -405,23 +498,84 @@ Interpreter::getSymbolAddressFromLinkerName(llvm::StringRef Name) const {
 
 //** //    if (T)
 //** //      *T = PRT.getPointer();
-/*    return llvm::ErrorSuccess(); //** //Interpreter::kSuccess;
-//  }
+    return llvm::ErrorSuccess(); //** //Interpreter::kSuccess;
+  }
+*/
 
-//** //  Interpreter::CompilationResult
-//  llvm::Error
-//  declare(const string& input) { //** //, Transaction** T/*=0 * /) {
-//** //    if (!isInSyntaxOnlyMode() && m_Opts.CompilerOpts.CUDAHost)
-//** //      m_CUDACompiler->declare(input);
+  CompilationResult
+  declare(const string& input, PartialTranslationUnit **PTU = nullptr) {
+//**//    , Transaction** T/*=0 */) {
+//**//    if (!isInSyntaxOnlyMode() && m_Opts.CompilerOpts.CUDAHost)
+//**//      m_CUDACompiler->declare(input);
+
+    if (auto resultPTUorErr = Parse(input)) {
+      if (PTU)
+        *PTU = &*resultPTUorErr;
+      return Interpreter::kSuccess;
+    }
+    // Hangle Err
+    return Interpreter::kFailure;
 /*
+
     InterOp::CompilationOptions CO = makeDefaultCompilationOpts();
     CO.DeclarationExtraction = 0;
     CO.ValuePrinting = 0;
     CO.ResultEvaluation = 0;
     CO.CheckPointerValidity = 0;
+
+    return DeclareInternal(input, CO); //** //, T);
 */
-//    return DeclareInternal(input, CO); //**//, T);
-//  }
+  }
+
+  ///\brief Maybe transform the input line to implement cint command line
+  /// semantics (declarations are global) and compile to produce a module.
+  ///
+  CompilationResult
+  process(const std::string& input, Value* V = 0,
+          PartialTranslationUnit **PTU = nullptr,
+//**//    Transaction** T /* = 0 */,
+          bool disableValuePrinting = false) {
+
+    llvm::Error Err = Execute(**PTU);
+    if (Err) {
+      // Handle Err
+      return Interpreter::kFailure;
+    }
+    return Interpreter::kSuccess;
+
+/*
+//** //    if (!isInSyntaxOnlyMode() && m_Opts.CompilerOpts.CUDAHost)
+//** //      m_CUDACompiler->process(input);
+
+    std::string wrapReadySource = input;
+    size_t wrapPoint = std::string::npos;
+    if (!isRawInputEnabled())
+      wrapPoint = utils::getWrapPoint(wrapReadySource, getCI()->getLangOpts());
+
+    CompilationOptions CO = makeDefaultCompilationOpts();
+    CO.EnableShadowing = m_RuntimeOptions.AllowRedefinition && !isRawInputEnabled();
+
+    if (isRawInputEnabled() || wrapPoint == std::string::npos) {
+      CO.DeclarationExtraction = 0;
+      CO.ValuePrinting = 0;
+      CO.ResultEvaluation = 0;
+      return DeclareInternal(input, CO, T);
+    }
+
+    CO.DeclarationExtraction = 1;
+    CO.ValuePrinting = disableValuePrinting ? CompilationOptions::VPDisabled
+      : CompilationOptions::VPAuto;
+    CO.ResultEvaluation = (bool)V;
+    // CO.IgnorePromptDiags = 1; done by EvaluateInternal().
+    CO.CheckPointerValidity = 1;
+    if (EvaluateInternal(wrapReadySource, CO, V, T, wrapPoint)
+                                                     == Interpreter::kFailure) {
+      return Interpreter::kFailure;
+    }
+
+    return Interpreter::kSuccess;
+*/
+  }
 
 
   ///\brief Compile the function definition and return its Decl.
@@ -523,7 +677,7 @@ Interpreter::getSymbolAddressFromLinkerName(llvm::StringRef Name) const {
 //    bool savedAccessControl = LO.AccessControl;
 //    LO.AccessControl = withAccessControl;
 //**//    T = nullptr;
-//**//    cling::Interpreter::CompilationResult CR = declare(code.str(), &T);
+//**//    CompilationResult CR = declare(code.str(), &T);
 //    llvm::Error CR = declare(code.str());
 //    LO.AccessControl = savedAccessControl;
 //
@@ -585,13 +739,112 @@ Interpreter::getSymbolAddressFromLinkerName(llvm::StringRef Name) const {
     return nullptr; //PTU???
   }
 
+  const CompilerInstance *getCI() const {
+    return getCompilerInstance();
+  }
 
-  };
-}
+  Sema& getSema() const {
+    return getCI()->getSema();
+  }
+
+  const DynamicLibraryManager* getDynamicLibraryManager() const {
+    assert(inner->getExecutionEngine() && "We must have an executor");
+    static const DynamicLibraryManager *DLM = new DynamicLibraryManager();
+    return DLM; //TODO: Add DLM to InternalExecutor and use executor->getDML()
+    //**//return inner->getExecutionEngine()->getDynamicLibraryManager();
+  }
+
+  DynamicLibraryManager* getDynamicLibraryManager() {
+    return const_cast<DynamicLibraryManager*>(
+      const_cast<const Interpreter*>(this)->getDynamicLibraryManager()
+    );
+  }
+
+  ///\brief Adds multiple include paths separated by a delimter.
+  ///
+  ///\param[in] PathsStr - Path(s)
+  ///\param[in] Delim - Delimiter to separate paths or NULL if a single path
+  ///
+  void AddIncludePaths(llvm::StringRef PathsStr, const char* Delim = ":") {
+    const CompilerInstance* CI = getCompilerInstance();
+    HeaderSearchOptions& HOpts = (HeaderSearchOptions&)CI->getHeaderSearchOpts();
+
+    // Save the current number of entries
+    size_t Idx = HOpts.UserEntries.size();
+    InterOp::utils::AddIncludePaths(PathsStr, HOpts, Delim);
+
+    Preprocessor& PP = CI->getPreprocessor();
+    SourceManager& SM = PP.getSourceManager();
+    FileManager& FM = SM.getFileManager();
+    HeaderSearch& HSearch = PP.getHeaderSearchInfo();
+    const bool isFramework = false;
+
+    // Add all the new entries into Preprocessor
+    for (const size_t N = HOpts.UserEntries.size(); Idx < N; ++Idx) {
+      const HeaderSearchOptions::Entry& E = HOpts.UserEntries[Idx];
+      if (auto DE = FM.getOptionalDirectoryRef(E.Path))
+        HSearch.AddSearchPath(DirectoryLookup(*DE, SrcMgr::C_User, isFramework),
+                              E.Group == frontend::Angled);
+    }
+
+    //**//if (m_CUDACompiler)
+    //**//  m_CUDACompiler->getPTXInterpreter()->AddIncludePaths(PathStr, Delm);
+  }
+
+  ///\brief Adds a single include path (-I).
+  ///
+  void AddIncludePath(llvm::StringRef PathsStr) {
+    return AddIncludePaths(PathsStr, nullptr);
+  }
+
+  CompilationResult
+  loadLibrary(const std::string& filename, bool lookup) {
+    DynamicLibraryManager* DLM = getDynamicLibraryManager();
+    std::string canonicalLib;
+    if (lookup)
+      canonicalLib = DLM->lookupLibrary(filename);
+
+    const std::string &library = lookup ? canonicalLib : filename;
+    if (!library.empty()) {
+      switch (DLM->loadLibrary(library, /*permanent*/false, /*resolved*/true)) {
+      case DynamicLibraryManager::kLoadLibSuccess: // Intentional fall through
+      case DynamicLibraryManager::kLoadLibAlreadyLoaded:
+        return kSuccess;
+      case DynamicLibraryManager::kLoadLibNotFound:
+        assert(0 && "Cannot find library with existing canonical name!");
+        return kFailure;
+      default:
+        // Not a source file (canonical name is non-empty) but can't load.
+        return kFailure;
+      }
+    }
+    return kMoreInputExpected;
+  }
+
+  std::string toString(const char* type, void* obj) {
+//**//
+/*    LockCompilationDuringUserCodeExecutionRAII LCDUCER(*this);
+    cling::valuePrinterInternal::declarePrintValue(*this);
+    std::string buf, ret;
+    llvm::raw_string_ostream ss(buf);
+    ss << "*((std::string*)" << &ret << ") = cling::printValue((" << type << "*)"
+       << obj << ");";
+    CompilationResult result = process(ss.str().c_str());
+    if (result != cling::Interpreter::kSuccess)
+      llvm::errs() << "Error in Interpreter::toString: the input " << ss.str()
+                   << " cannot be evaluated";
+
+    return ret;
+*/
+    std::string ret;
+    return ret;
+  }
+
+
+  }; //Interpreter
+} //InterOp
 
 #endif //USE_REPL
 
-
-//} // namespace cling_compat
 
 #endif //INTEROP_COMPATIBILITY

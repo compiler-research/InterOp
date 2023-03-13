@@ -17,7 +17,7 @@
 #elif USE_REPL
   #include "clang/Interpreter/Interpreter.h"
 //  #include "clang/Interpreter/Transaction.h"
-//  #include "clang/Interpreter/DynamicLibraryManager.h"
+  #include "DynamicLibraryManager.h"
 //  #include "clang/Utils/AST.h"
 //**//
   #include "clang/AST/Type.h"
@@ -294,7 +294,8 @@ namespace InterOp {
     }
 
     auto *S = (Sema *) sema;
-    auto *ND = cling::utils::Lookup::Named(S, name, Within);
+//**//    auto *ND = cling::utils::Lookup::Named(S, name, Within);
+    auto *ND = InterOp::utils::Lookup::Named(S, name, Within);
 
     if (!(ND == (NamedDecl *) -1) &&
             (llvm::isa_and_nonnull<NamespaceDecl>(ND)     ||
@@ -332,7 +333,8 @@ namespace InterOp {
     }
 
     auto *S = (Sema *) sema;
-    auto *ND = cling::utils::Lookup::Named(S, name, Within);
+//**//    auto *ND = cling::utils::Lookup::Named(S, name, Within);
+    auto *ND = InterOp::utils::Lookup::Named(S, name, Within);
     if (ND && ND != (clang::NamedDecl*) -1) {
       return (TCppScope_t)(ND->getCanonicalDecl());
     }
@@ -503,14 +505,15 @@ namespace InterOp {
                           Sema::LookupOrdinaryName,
                           Sema::ForVisibleRedeclaration);
 
-    cling::utils::Lookup::Named(S, R, Decl::castToDeclContext(D));
+//**//    cling::utils::Lookup::Named(S, R, Decl::castToDeclContext(D));
+    InterOp::utils::Lookup::Named(S, R, Decl::castToDeclContext(D));
 
     if (R.empty())
       return funcs;
 
     R.resolveKind();
 
-    for (LookupResult::iterator Res = R.begin(), ResEnd = R.end();
+    for (clang::LookupResult::iterator Res = R.begin(), ResEnd = R.end();
          Res != ResEnd;
          ++Res) {
       if (llvm::isa<FunctionDecl>(*Res)) {
@@ -662,7 +665,8 @@ namespace InterOp {
     }
 
     auto *S = (Sema *) sema;
-    auto *ND = cling::utils::Lookup::Named(S, name, Within);
+//**//    auto *ND = cling::utils::Lookup::Named(S, name, Within);
+    auto *ND = InterOp::utils::Lookup::Named(S, name, Within);
 
     if ((intptr_t) ND == (intptr_t) 0)
       return false;
@@ -789,7 +793,8 @@ namespace InterOp {
     }
 
     auto *S = (Sema *) sema;
-    auto *ND = cling::utils::Lookup::Named(S, name, Within);
+//**//    auto *ND = cling::utils::Lookup::Named(S, name, Within);
+    auto *ND = InterOp::utils::Lookup::Named(S, name, Within);
     if (ND && ND != (clang::NamedDecl*) -1) {
       if (llvm::isa_and_nonnull<clang::FieldDecl>(ND)) {
         return (TCppScope_t)ND;
@@ -819,8 +824,7 @@ namespace InterOp {
 //**//    auto *I = (cling::Interpreter *) interp;
     auto *I = (InterOp::Interpreter *) interp;
 //**//    auto *S = &I->getCI()->getSema();
-//////    auto *S = &I->getCompilerInstance()->getSema();
-    auto *S = GetSema(I);
+    auto *S = &I->getSema();
     auto &C = S->getASTContext();
 
     if (auto *FD = llvm::dyn_cast<FieldDecl>(D))
@@ -988,7 +992,8 @@ namespace InterOp {
   TCppType_t GetType(TCppSema_t sema, const std::string &name) {
     auto *S = (Sema *) sema;
     
-    // auto *ND = cling::utils::Lookup::Named(S, name, 0);
+//**//    // auto *ND = cling::utils::Lookup::Named(S, name, 0);
+    // auto *ND = InterOp::utils::Lookup::Named(S, name, 0);
 
     QualType builtin = findBuiltinType(name, S->getASTContext());
     if (!builtin.isNull())
@@ -2000,7 +2005,6 @@ namespace InterOp {
   }
 
   namespace {
-  
   std::string GetExecutablePath(const char *Argv0, void *MainAddr) {
     return llvm::sys::fs::getMainExecutable(Argv0, MainAddr);
   }
@@ -2120,7 +2124,7 @@ namespace InterOp {
 //**//    auto* I = (cling::Interpreter*)interp;
     auto* I = (InterOp::Interpreter*)interp;
 //**//    cling::Interpreter::CompilationResult res =
-    cling::Interpreter::CompilationResult res =
+    InterOp::Interpreter::CompilationResult res =
       I->loadLibrary(lib_name, lookup);
     
 //**//    return res == cling::Interpreter::kSuccess;
@@ -2190,7 +2194,6 @@ namespace InterOp {
 
     // We will create a new decl, push a transaction.
 //**//    cling::Interpreter::PushTransactionRAII RAII(I);
-    InterOp::Interpreter::PushTransactionRAII RAII(I);
 
     QualType Instance = InstantiateTemplate(TmplD, TemplateArgs, I->getSema());
     return GetScopeFromType(Instance);
